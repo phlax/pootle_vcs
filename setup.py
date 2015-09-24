@@ -28,11 +28,11 @@ https://github.com/pypa/sampleproject
 from setuptools import setup, find_packages
 
 setup(
-    name='pootle_vcs_git',
+    name='pootle_vcs',
     version='0.0.1',
-    description='Pootle VCS GIT integration',
+    description='Pootle VCS integration',
     long_description="Integration between Pootle and VCS backends",
-    url='https://github.com/phlax/pootle_vcs_git',
+    url='https://github.com/phlax/pootle_vcs',
     author='Ryan Northey',
     author_email='ryan@synca.io',
     license='GPL3',
@@ -45,5 +45,5 @@ setup(
     ],
     keywords='pootle vcs',
     packages=find_packages(exclude=['contrib', 'docs', 'tests*']),
-    install_requires=['pootle_vcs'],
+    install_requires=['rq_scheduler', 'pootle'],
 )
