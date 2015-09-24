@@ -12,6 +12,7 @@ class ProjectVCS(models.Model):
     enabled = models.BooleanField(default=True)
     fetch_frequency = models.IntegerField(default=0)
     push_frequency = models.IntegerField(default=0)
+    pootle_config = models.CharField(max_length=32, default=".pootle.ini")
 
     @property
     def plugin(self):
@@ -25,6 +26,12 @@ class ProjectVCS(models.Model):
 
     def get_latest_commit(self):
         return self.plugin.get_latest_commit()
+
+    def read_config(self):
+        return self.plugin.read_config()
+
+    def pull_translation_files(self):
+        return self.plugin.pull_translation_files()
 
     # VCS Plugin implementation
     ###########################

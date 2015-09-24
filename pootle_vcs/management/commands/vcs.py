@@ -48,11 +48,23 @@ class Command(BaseCommand):
             self.stdout.write("fetch frequency: %s" % vcs.fetch_frequency)
             self.stdout.write("push frequency: %s" % vcs.push_frequency)
 
-    def handle_pull_translations(self):
-        pass
+    def handle_pull_translations(self, project):
+        try:
+            vcs = project.vcs.get()
+        except ProjectVCS.DoesNotExist:
+            vcs = None
+        vcs.pull_translation_files()
 
     def handle_commit_changes(self, project):
         pass
+
+    def handle_read_config(self, project):
+        try:
+            vcs = project.vcs.get()
+        except ProjectVCS.DoesNotExist:
+            vcs = None
+        config = vcs.read_config()
+        
 
     def handle(self, *args, **kwargs):
 
