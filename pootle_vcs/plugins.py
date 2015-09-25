@@ -33,15 +33,15 @@ class Plugin(object):
         config = self.read_config()
 
         for section in config.sections():
-            finder = TranslationFileFinder(
-                os.path.join(
-                    self.local_repo_path,
-                    config.get(section, "translation_path")))
             if section == "default":
                 section_subdirs = []
             else:
                 section_subdirs = section.split("/")
 
+            finder = TranslationFileFinder(
+                os.path.join(
+                    self.local_repo_path,
+                    config.get(section, "translation_path")))
             for file_path, matched in finder.find():
                 lang_code = matched['lang']
                 subdirs = section_subdirs + [
