@@ -63,8 +63,7 @@ class Command(BaseCommand):
             vcs = project.vcs.get()
         except ProjectVCS.DoesNotExist:
             vcs = None
-        config = vcs.read_config()
-        
+        return vcs.read_config()
 
     def handle(self, *args, **kwargs):
 
