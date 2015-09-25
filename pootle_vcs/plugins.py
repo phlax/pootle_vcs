@@ -1,12 +1,12 @@
 import io
 import logging
 import os
-import re
 from ConfigParser import ConfigParser
 
 from pootle_language.models import Language
 
 from .files import RepositoryFile
+from .finder import TranslationFileFinder
 
 logger = logging.getLogger(__name__)
 
@@ -33,53 +33,37 @@ class Plugin(object):
         config = self.read_config()
 
         for section in config.sections():
-            translation_path = os.path.join(self.local_repo_path,
-                                            config.get(section,
-                                                       "translation_path"))
-            file_root = translation_path.split("<")[0]
-            if not file_root.endswith("/"):
-                file_root = "/".join(file_root.split("/")[:-1])
-
-            match = (translation_path.replace(".", "\.")
-                                     .replace("<lang>",
-                                              "(?P<lang>[\w]*)")
-                                     .replace("<filename>",
-                                              "(?P<filename>[\w]*)")
-                                     .replace("<directory_path>",
-                                              "(?P<directory_path>[\w\/]*)"))
-
-            match = re.compile(match)
+            finder = TranslationFileFinder(
+                os.path.join(
+                    self.local_repo_path,
+                    config.get(section, "translation_path")))
             if section == "default":
                 section_subdirs = []
             else:
                 section_subdirs = section.split("/")
-            # TODO: make sure translation_path has no ..
-            for root, dirs, files in os.walk(file_root):
-                for filename in files:
-                    file_path = os.path.join(root, filename)
-                    matches = match.match(file_path)
-                    subdirs = section_subdirs + [
-                        m for m in
-                        matches.groupdict().get('directory_path',
-                                                '').strip("/").split("/")
-                        if m]
-                    if matches:
-                        # TODO: extension matching?
-                        lang_code = matches.groupdict()['lang']
-                        try:
-                            yield self.file_class(file_path,
-                                                  self.vcs,
-                                                  lang_code,
-                                                  filename,
-                                                  subdirs)
-                        except Language.DoesNotExist:
-                            logger.warning("Language does not exist for %s: %s"
-                                           % (self.vcs,
-                                              lang_code))
+
+            for file_path, matched in finder.find():
+                lang_code = matched['lang']
+                subdirs = section_subdirs + [
+                    m for m in
+                    matched.get(
+                        'directory_path', '').strip("/").split("/")
+                    if m]
+                try:
+                    yield self.file_class(
+                        file_path,
+                        self.vcs,
+                        lang_code,
+                        filename,
+                        subdirs)
+                except Language.DoesNotExist:
+                    logger.warning(
+                        "Language does not exist for %s: %s"
+                        % (self.vcs, lang_code))
 
     def pull_translation_files(self):
         for repo_file in self.find_translation_files():
-            repo_file.sync()
+            repo_file.pull()
 
     def pull(self):
         raise NotImplementedError

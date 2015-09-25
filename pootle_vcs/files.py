@@ -34,24 +34,26 @@ class RepositoryFile(object):
     def translation_project(self):
         return self.project.translationproject_set.get(language=self.language)
 
-    def sync(self):
+    def pull(self):
         try:
             tp = self.translation_project
         except TranslationProject.DoesNotExist:
-            tp = TranslationProject.objects.create(project=self.vcs.project,
-                                                   language=self.language)
+            tp = TranslationProject.objects.create(
+                project=self.vcs.project,
+                language=self.language)
 
-        directory = self.translation_project.directory
+        directory = tp.directory
         if self.directory_path:
             for subdir in self.directory_path.split("/"):
                 (directory,
                  created) = directory.child_dirs.get_or_create(name=subdir)
 
+        store, created = Store.objects.get_or_create(
+            parent=directory, translation_project=tp, name=self.filename)
+        if created:
+            store.save()
+
         with open(self.path) as f:
-            store, created = Store.objects.get_or_create(
-                parent=directory, translation_project=tp, name=self.filename)
-            if created:
-                store.save()
             import_file(f,
                         pootle_path=self.pootle_path,
                         rev=store.get_max_unit_revision())
