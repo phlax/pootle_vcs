@@ -58,6 +58,32 @@ class Command(BaseCommand):
     def handle_commit_changes(self, project):
         pass
 
+    def handle_status(self, project):
+        try:
+            vcs = project.vcs.get()
+        except ProjectVCS.DoesNotExist:
+            vcs = None
+        status = vcs.status()
+        synced = (
+            not status['CONFLICT']
+            and not status['POOTLE_AHEAD']
+            and not status['VCS_AHEAD'])
+        if synced:
+            self.stdout.write("Everything up-to-date")
+            return
+        if status["CONFLICT"]:
+            self.stdout.write("Both changed:")
+            for repo_file in status["CONFLICT"]:
+                self.stdout.write(repo_file)
+        if status["POOTLE_AHEAD"]:
+            self.stdout.write("Pootle changed:")
+            for repo_file in status["POOTLE_AHEAD"]:
+                self.stdout.write(repo_file)
+        if status["VCS_AHEAD"]:
+            self.stdout.write("VCS changed:")
+            for repo_file in status["VCS_AHEAD"]:
+                self.stdout.write(repo_file)
+
     def handle_read_config(self, project):
         try:
             vcs = project.vcs.get()

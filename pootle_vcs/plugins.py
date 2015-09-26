@@ -8,6 +8,7 @@ from pootle_language.models import Language
 from .files import RepositoryFile
 from .finder import TranslationFileFinder
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -28,6 +29,16 @@ class Plugin(object):
     def local_repo_path(self):
         vcs_path = "/tmp"
         return os.path.join(vcs_path, self.vcs.project.code)
+
+    @property
+    def project(self):
+        return self.vcs.project
+
+    @property
+    def store_vcs(self):
+        from .models import StoreVCS
+        return StoreVCS.objects.filter(
+            store__translation_project__project=self.project)
 
     def find_translation_files(self):
         config = self.read_config()
@@ -84,6 +95,28 @@ class Plugin(object):
         config = ConfigParser()
         config.readfp(io.BytesIO(self.read(self.vcs.pootle_config)))
         return config
+
+    def status(self):
+        status = dict(
+            CONFLICT = [],
+            VCS_AHEAD = [],
+            POOTLE_AHEAD = [])
+
+        for store_vcs in self.store_vcs:
+            repo_file = store_vcs.repository_file
+            repo_changed = False
+            pootle_changed = False
+            if repo_file.latest_commit != store_vcs.last_sync_commit:
+                repo_changed = True
+            if store_vcs.store.get_max_unit_revision() != store_vcs.last_sync_revision:
+                pootle_changed = True
+            if repo_changed and pootle_changed:
+                status['CONFLICT'].append(store_vcs)
+            elif repo_changed:
+                status['VCS_AHEAD'].append(store_vcs)
+            elif pootle_changed:
+                status['POOTLE_AHEAD'].append(store_vcs)
+        return status
 
 
 class Plugins(object):

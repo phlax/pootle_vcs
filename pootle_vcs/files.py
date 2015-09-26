@@ -7,11 +7,14 @@ from pootle_translationproject.models import TranslationProject
 
 class RepositoryFile(object):
 
-    def __init__(self, path, vcs, language, filename, directory_path=[]):
+    def __init__(self, path, vcs, language, filename, directory_path=None):
         self.vcs = vcs
         self.language = Language.objects.get(code=language)
         self.filename = filename
-        self.directory_path = '/'.join(directory_path)
+        if directory_path is not None:
+            self.directory_path = '/'.join(directory_path)
+        else:
+            self.directory_path = []
         self.path = path
 
     def __str__(self):
@@ -34,42 +37,54 @@ class RepositoryFile(object):
 
     @property
     def translation_project(self):
-        return self.project.translationproject_set.get(language=self.language)
+        try:
+            return self.project.translationproject_set.get(
+                language=self.language)
+        except TranslationProject.DoesNotExist:
+            return TranslationProject.objects.create(
+                project=self.vcs.project,
+                language=self.language)
+
+    @property
+    def directory(self):
+        directory = self.translation_project.directory
+        if self.directory_path:
+            for subdir in self.directory_path.split("/"):
+                (directory,
+                 created) = directory.child_dirs.get_or_create(name=subdir)
+        return directory
+
+    @property
+    def store(self):
+        store, created = Store.objects.get_or_create(
+            parent=self.directory,
+            translation_project=self.translation_project,
+            name=self.filename)
+        if created:
+            store.save()
+        return store
+
+    @property
+    def store_vcs(self):
+        from pootle_vcs.models import StoreVCS
+        store_vcs, created = StoreVCS.objects.get_or_create(
+            store=self.store)
+        return store_vcs
 
     @property
     def latest_commit(self):
         raise NotImplementedError
 
     def pull(self):
-        try:
-            tp = self.translation_project
-        except TranslationProject.DoesNotExist:
-            tp = TranslationProject.objects.create(
-                project=self.vcs.project,
-                language=self.language)
-
-        directory = tp.directory
-        if self.directory_path:
-            for subdir in self.directory_path.split("/"):
-                (directory,
-                 created) = directory.child_dirs.get_or_create(name=subdir)
-
-        store, created = Store.objects.get_or_create(
-            parent=directory, translation_project=tp, name=self.filename)
-        if created:
-            store.save()
-
-        from pootle_vcs.models import StoreVCS
-        store_vcs, created = StoreVCS.objects.get_or_create(
-            store=store)
-
         with open(self.path) as f:
             import_file(
                 f,
                 pootle_path=self.pootle_path,
-                rev=store.get_max_unit_revision())
-        store_vcs.latest_sync_commit = self.latest_commit
-        store_vcs.latest_sync_revision = store.get_max_unit_revision()
+                rev=self.store.get_max_unit_revision())
+        store_vcs = self.store_vcs
+        store_vcs.path = self.path
+        store_vcs.last_sync_commit = self.latest_commit
+        store_vcs.last_sync_revision = self.store.get_max_unit_revision()
         store_vcs.save()
 
     def read(self):

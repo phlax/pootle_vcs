@@ -3,13 +3,27 @@ from django.db import models
 from pootle_project.models import Project
 from pootle_store.models import Store
 
-from pootle_vcs import plugins
+from . import plugins
 
 
 class StoreVCS(models.Model):
     store = models.ForeignKey(Store, related_name='vcs')
     last_sync_revision = models.IntegerField(blank=True, null=True)
     last_sync_commit = models.CharField(max_length=32, blank=True, null=True)
+    path =  models.CharField(max_length=32)
+
+    @property
+    def vcs(self):
+        return self.store.translation_project.project.vcs.get()
+
+    @property
+    def repository_file(self):
+        return self.vcs.plugin.file_class(
+            self.path,
+            self.vcs,
+            self.store.translation_project.language.code, 
+            self.store.name,
+            [s.name for s in self.store.parent.trail()])
 
 
 class ProjectVCS(models.Model):
@@ -36,6 +50,9 @@ class ProjectVCS(models.Model):
 
     def read_config(self):
         return self.plugin.read_config()
+
+    def status(self):
+        return self.plugin.status()
 
     def pull_translation_files(self):
         return self.plugin.pull_translation_files()
