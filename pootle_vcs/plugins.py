@@ -19,15 +19,15 @@ class Plugin(object):
         self.vcs = vcs
 
     @property
-    def local_repo_path(self):
-        vcs_path = "/tmp"
-        return os.path.join(vcs_path, self.vcs.project.code)
-
-    @property
     def is_cloned(self):
         if os.path.exists(self.local_repo_path):
             return True
         return False
+
+    @property
+    def local_repo_path(self):
+        vcs_path = "/tmp"
+        return os.path.join(vcs_path, self.vcs.project.code)
 
     def find_translation_files(self):
         config = self.read_config()
@@ -44,11 +44,13 @@ class Plugin(object):
                     config.get(section, "translation_path")))
             for file_path, matched in finder.find():
                 lang_code = matched['lang']
-                subdirs = section_subdirs + [
-                    m for m in
-                    matched.get(
-                        'directory_path', '').strip("/").split("/")
-                    if m]
+                subdirs = (
+                    section_subdirs
+                    + [m for m in
+                       matched.get(
+                            'directory_path', '').strip("/").split("/")
+                       if m])
+                filename = matched.get("filename") or os.path.basename(file_path)
                 try:
                     yield self.file_class(
                         file_path,

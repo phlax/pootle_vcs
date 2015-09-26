@@ -19,12 +19,14 @@ class RepositoryFile(object):
 
     @property
     def pootle_path(self):
-        return "/".join(['']
-                        + [x for x in [self.language.code,
-                                       self.project.code,
-                                       self.directory_path,
-                                       self.filename]
-                           if x])
+        return "/".join(
+            ['']
+            + [x for x in
+               [self.language.code,
+                self.project.code,
+                self.directory_path,
+                self.filename]
+               if x])
 
     @property
     def project(self):
@@ -33,6 +35,10 @@ class RepositoryFile(object):
     @property
     def translation_project(self):
         return self.project.translationproject_set.get(language=self.language)
+
+    @property
+    def latest_commit(self):
+        raise NotImplementedError
 
     def pull(self):
         try:
@@ -53,10 +59,18 @@ class RepositoryFile(object):
         if created:
             store.save()
 
+        from pootle_vcs.models import StoreVCS
+        store_vcs, created = StoreVCS.objects.get_or_create(
+            store=store)
+
         with open(self.path) as f:
-            import_file(f,
-                        pootle_path=self.pootle_path,
-                        rev=store.get_max_unit_revision())
+            import_file(
+                f,
+                pootle_path=self.pootle_path,
+                rev=store.get_max_unit_revision())
+        store_vcs.latest_sync_commit = self.latest_commit
+        store_vcs.latest_sync_revision = store.get_max_unit_revision()
+        store_vcs.save()
 
     def read(self):
         # self.vcs.pull()

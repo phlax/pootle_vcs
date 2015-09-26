@@ -1,8 +1,15 @@
 from django.db import models
 
 from pootle_project.models import Project
+from pootle_store.models import Store
 
 from pootle_vcs import plugins
+
+
+class StoreVCS(models.Model):
+    store = models.ForeignKey(Store, related_name='vcs')
+    last_sync_revision = models.IntegerField(blank=True, null=True)
+    last_sync_commit = models.CharField(max_length=32, blank=True, null=True)
 
 
 class ProjectVCS(models.Model):

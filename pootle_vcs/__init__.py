@@ -1,4 +1,5 @@
 from .plugins import Plugins, Plugin
-(Plugin)
+from .files import RepositoryFile
+(Plugin, RepositoryFile)
 
 plugins = Plugins()
