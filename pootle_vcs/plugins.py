@@ -4,6 +4,7 @@ import os
 from ConfigParser import ConfigParser
 
 from pootle_language.models import Language
+from pootle_store.models import Store
 
 from .files import RepositoryFile
 from .finder import TranslationFileFinder
@@ -35,10 +36,19 @@ class Plugin(object):
         return self.vcs.project
 
     @property
+    def stores(self):
+        return Store.objects.filter(
+            translation_project__project=self.project)
+
+    @property
     def translation_files(self):
         from .models import StoreVCS
         return StoreVCS.objects.filter(
             store__translation_project__project=self.project)
+
+    def fetch_translation_files(self):
+        for repo_file in self.find_translation_files():
+            repo_file.fetch()
 
     def find_translation_files(self):
         config = self.read_config()
@@ -101,23 +111,36 @@ class Plugin(object):
         self.pull()
         status = dict(
             CONFLICT=[],
+            VCS_ADDED=[],
             VCS_AHEAD=[],
             POOTLE_AHEAD=[])
 
         for store_vcs in self.translation_files:
-            repo_file = store_vcs.repository_file
+            repo_file = store_vcs.repository_file            
+            repo_removed = not repo_file.exists
+            repo_added = (
+                store_vcs.last_sync_commit is None)
             repo_changed = (
-                repo_file.latest_commit
-                != store_vcs.last_sync_commit)
+                store_vcs.last_sync_commit is not None
+                and (repo_file.latest_commit
+                     != store_vcs.last_sync_commit))
             pootle_changed = (
-                store_vcs.store.get_max_unit_revision()
-                != store_vcs.last_sync_revision)
-            if repo_changed and pootle_changed:
+                store_vcs.last_sync_commit is not None
+                and (store_vcs.store.get_max_unit_revision()
+                     != store_vcs.last_sync_revision))
+            if repo_removed:
+                status['VCS_REMOVED'].append(store_vcs)
+            elif repo_added:
+                status['VCS_ADDED'].append(store_vcs)
+            elif repo_changed and pootle_changed:
                 status['CONFLICT'].append(store_vcs)
             elif repo_changed:
                 status['VCS_AHEAD'].append(store_vcs)
             elif pootle_changed:
                 status['POOTLE_AHEAD'].append(store_vcs)
+
+        status['POOTLE_ADDED'] = self.stores.filter(vcs__isnull=True)
+
         return status
 
 
@@ -131,3 +154,7 @@ class Plugins(object):
 
     def __getitem__(self, k):
         return self.__plugins__[k]
+
+    def __contains__(self, k):
+        return k in self.__plugins__
+

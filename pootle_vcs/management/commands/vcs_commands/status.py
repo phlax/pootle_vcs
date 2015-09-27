@@ -24,6 +24,8 @@ class StatusCommand(SubCommand):
         synced = (
             not status['CONFLICT']
             and not status['POOTLE_AHEAD']
+            and not status['POOTLE_ADDED']
+            and not status['VCS_ADDED']
             and not status['VCS_AHEAD'])
         if synced:
             self.stdout.write("Everything up-to-date")
@@ -32,14 +34,28 @@ class StatusCommand(SubCommand):
             self.stdout.write("Both changed:")
             for repo_file in status["CONFLICT"]:
                 self.stdout.write(repo_file)
+        if status["POOTLE_ADDED"]:
+            for store in status["POOTLE_ADDED"]:
+                self.stdout.write(
+                    " %-50s %-50s %-20s\n"
+                    % ("", store.pootle_path,
+                       "Pootle added: %s" % store.get_max_unit_revision()))
         if status["POOTLE_AHEAD"]:
             self.stdout.write("Pootle changed:")
             for repo_file in status["POOTLE_AHEAD"]:
                 self.stdout.write(repo_file)
+        if status["VCS_ADDED"]:
+            for store_vcs in status["VCS_ADDED"]:
+                self.stdout.write(
+                    " %-50s %-50s %-10s\n"
+                    % (store_vcs.path,
+                       store_vcs.store.pootle_path,
+                       "VCS added: %s"
+                       % store_vcs.repository_file.latest_commit[:8]))
         if status["VCS_AHEAD"]:
             for store_vcs in status["VCS_AHEAD"]:
                 self.stdout.write(
-                    " %-32s %-32s %-25s\n"
+                    " %-50s %-50s %-20s\n"
                     % (store_vcs.path,
                        store_vcs.store.pootle_path,
                        "VCS updated: %s...%s"

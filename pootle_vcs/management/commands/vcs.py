@@ -21,8 +21,10 @@ from pootle_project.models import Project
 from pootle_vcs.models import ProjectVCS
 
 from .vcs_commands.info import ProjectInfoCommand
+from .vcs_commands.fetch_translations import FetchTranslationsCommand
 from .vcs_commands.files import FilesCommand
 from .vcs_commands.pull_translations import PullTranslationsCommand
+from .vcs_commands.set_vcs import SetVCSCommand
 from .vcs_commands.status import StatusCommand
 
 
@@ -33,14 +35,16 @@ class Command(BaseCommand):
     help = "Pootle VCS."
     subcommands = {
         "info": ProjectInfoCommand,
+        "fetch_translations": FetchTranslationsCommand,
         "files": FilesCommand,
         "pull_translations": PullTranslationsCommand,
+        "set_vcs": SetVCSCommand,
         "status": StatusCommand}
 
     def handle_subcommand(self, project, command, *args, **options):
         try:
             subcommand = self.subcommands[command]()
-        except AttributeError:
+        except KeyError:
             raise CommandError("Unrecognised command: %s" % command)
         defaults = {}
         for opt in subcommand.option_list:

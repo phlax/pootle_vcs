@@ -48,17 +48,20 @@ class ProjectVCS(models.Model):
     def get_latest_commit(self):
         return self.plugin.get_latest_commit()
 
+    def fetch_translation_files(self):
+        return self.plugin.fetch_translation_files()
+
+    def list_translation_files(self):
+        return self.plugin.translation_files
+
+    def pull_translation_files(self):
+        return self.plugin.pull_translation_files()
+
     def read_config(self):
         return self.plugin.read_config()
 
     def status(self):
         return self.plugin.status()
-
-    def pull_translation_files(self):
-        return self.plugin.pull_translation_files()
-
-    def list_translation_files(self):
-        return self.plugin.translation_files
 
     # VCS Plugin implementation
     ###########################

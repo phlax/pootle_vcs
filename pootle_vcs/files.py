@@ -1,5 +1,7 @@
 import os
 
+from import_export.utils import import_file
+
 from pootle_store.models import Store
 from pootle_translationproject.models import TranslationProject
 
@@ -35,6 +37,10 @@ class RepositoryFile(object):
         return os.path.join(
             self.vcs.plugin.local_repo_path,
             self.path.strip("/"))
+
+    @property
+    def exists(self):
+        return os.path.exists(self.file_path)
 
     @property
     def project(self):
@@ -73,16 +79,23 @@ class RepositoryFile(object):
     def store_vcs(self):
         from pootle_vcs.models import StoreVCS
         store_vcs, created = StoreVCS.objects.get_or_create(
-            store=self.store)
+            store=self.store, path=self.path)
         return store_vcs
 
     @property
     def latest_commit(self):
         raise NotImplementedError
 
+    def fetch(self):
+        return self.store_vcs
+
     def pull(self):
+        with open(self.file_path) as f:
+            import_file(
+                f,
+                pootle_path=self.pootle_path,
+                rev=self.store.get_max_unit_revision())
         store_vcs = self.store_vcs
-        store_vcs.path = self.path
         store_vcs.last_sync_commit = self.latest_commit
         store_vcs.last_sync_revision = self.store.get_max_unit_revision()
         store_vcs.save()
