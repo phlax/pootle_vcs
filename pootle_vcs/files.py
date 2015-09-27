@@ -1,15 +1,14 @@
-from import_export.utils import import_file
+import os
 
-from pootle_language.models import Language
 from pootle_store.models import Store
 from pootle_translationproject.models import TranslationProject
 
 
 class RepositoryFile(object):
 
-    def __init__(self, path, vcs, language, filename, directory_path=None):
+    def __init__(self, vcs, path, language, filename, directory_path=None):
         self.vcs = vcs
-        self.language = Language.objects.get(code=language)
+        self.language = language
         self.filename = filename
         if directory_path is not None:
             self.directory_path = '/'.join(directory_path)
@@ -30,6 +29,12 @@ class RepositoryFile(object):
                 self.directory_path,
                 self.filename]
                if x])
+
+    @property
+    def file_path(self):
+        return os.path.join(
+            self.vcs.plugin.local_repo_path,
+            self.path.strip("/"))
 
     @property
     def project(self):
@@ -76,11 +81,6 @@ class RepositoryFile(object):
         raise NotImplementedError
 
     def pull(self):
-        with open(self.path) as f:
-            import_file(
-                f,
-                pootle_path=self.pootle_path,
-                rev=self.store.get_max_unit_revision())
         store_vcs = self.store_vcs
         store_vcs.path = self.path
         store_vcs.last_sync_commit = self.latest_commit
@@ -89,5 +89,5 @@ class RepositoryFile(object):
 
     def read(self):
         # self.vcs.pull()
-        with open(self.path) as f:
+        with open(self.file_path) as f:
             return f.read()

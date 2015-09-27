@@ -10,7 +10,7 @@ class StoreVCS(models.Model):
     store = models.ForeignKey(Store, related_name='vcs')
     last_sync_revision = models.IntegerField(blank=True, null=True)
     last_sync_commit = models.CharField(max_length=32, blank=True, null=True)
-    path =  models.CharField(max_length=32)
+    path = models.CharField(max_length=32)
 
     @property
     def vcs(self):
@@ -19,9 +19,9 @@ class StoreVCS(models.Model):
     @property
     def repository_file(self):
         return self.vcs.plugin.file_class(
-            self.path,
             self.vcs,
-            self.store.translation_project.language.code, 
+            self.path,
+            self.store.translation_project.language,
             self.store.name,
             [s.name for s in self.store.parent.trail()])
 
@@ -56,6 +56,9 @@ class ProjectVCS(models.Model):
 
     def pull_translation_files(self):
         return self.plugin.pull_translation_files()
+
+    def list_translation_files(self):
+        return self.plugin.translation_files
 
     # VCS Plugin implementation
     ###########################

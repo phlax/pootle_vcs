@@ -35,7 +35,7 @@ class Plugin(object):
         return self.vcs.project
 
     @property
-    def store_vcs(self):
+    def translation_files(self):
         from .models import StoreVCS
         return StoreVCS.objects.filter(
             store__translation_project__project=self.project)
@@ -55,24 +55,25 @@ class Plugin(object):
                     config.get(section, "translation_path")))
             for file_path, matched in finder.find():
                 lang_code = matched['lang']
-                subdirs = (
-                    section_subdirs
-                    + [m for m in
-                       matched.get(
-                            'directory_path', '').strip("/").split("/")
-                       if m])
-                filename = matched.get("filename") or os.path.basename(file_path)
                 try:
-                    yield self.file_class(
-                        file_path,
-                        self.vcs,
-                        lang_code,
-                        filename,
-                        subdirs)
+                    language = Language.objects.get(code=lang_code)
                 except Language.DoesNotExist:
                     logger.warning(
                         "Language does not exist for %s: %s"
                         % (self.vcs, lang_code))
+                subdirs = (
+                    section_subdirs
+                    + [m for m in
+                       matched.get('directory_path', '').strip("/").split("/")
+                       if m])
+                filename = (
+                    matched.get("filename") or os.path.basename(file_path))
+                yield self.file_class(
+                    self.vcs,
+                    file_path.replace(self.local_repo_path, ""),
+                    language,
+                    filename,
+                    subdirs)
 
     def pull_translation_files(self):
         for repo_file in self.find_translation_files():
@@ -97,19 +98,20 @@ class Plugin(object):
         return config
 
     def status(self):
+        self.pull()
         status = dict(
-            CONFLICT = [],
-            VCS_AHEAD = [],
-            POOTLE_AHEAD = [])
+            CONFLICT=[],
+            VCS_AHEAD=[],
+            POOTLE_AHEAD=[])
 
-        for store_vcs in self.store_vcs:
+        for store_vcs in self.translation_files:
             repo_file = store_vcs.repository_file
-            repo_changed = False
-            pootle_changed = False
-            if repo_file.latest_commit != store_vcs.last_sync_commit:
-                repo_changed = True
-            if store_vcs.store.get_max_unit_revision() != store_vcs.last_sync_revision:
-                pootle_changed = True
+            repo_changed = (
+                repo_file.latest_commit
+                != store_vcs.last_sync_commit)
+            pootle_changed = (
+                store_vcs.store.get_max_unit_revision()
+                != store_vcs.last_sync_revision)
             if repo_changed and pootle_changed:
                 status['CONFLICT'].append(store_vcs)
             elif repo_changed:

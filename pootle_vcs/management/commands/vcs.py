@@ -9,15 +9,21 @@
 
 import logging
 import os
+from optparse import NO_DEFAULT
 
 # This must be run before importing Django.
 os.environ['DJANGO_SETTINGS_MODULE'] = 'pootle.settings'
 
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 
 from pootle_project.models import Project
 
 from pootle_vcs.models import ProjectVCS
+
+from .vcs_commands.info import ProjectInfoCommand
+from .vcs_commands.files import FilesCommand
+from .vcs_commands.pull_translations import PullTranslationsCommand
+from .vcs_commands.status import StatusCommand
 
 
 logger = logging.getLogger('pootle.vcs')
@@ -25,74 +31,27 @@ logger = logging.getLogger('pootle.vcs')
 
 class Command(BaseCommand):
     help = "Pootle VCS."
+    subcommands = {
+        "info": ProjectInfoCommand,
+        "files": FilesCommand,
+        "pull_translations": PullTranslationsCommand,
+        "status": StatusCommand}
 
-    def handle_project(self, project):
+    def handle_subcommand(self, project, command, *args, **options):
         try:
-            vcs = project.vcs.get()
-        except ProjectVCS.DoesNotExist:
-            vcs = None
-        if vcs:
-            self.stdout.write("%s\t%s" % (project.code, project.vcs.get().url))
-
-    def handle_project_info(self, project):
-        try:
-            vcs = project.vcs.get()
-        except ProjectVCS.DoesNotExist:
-            vcs = None
-        if vcs:
-            self.stdout.write("Project: %s" % project.code)
-            self.stdout.write("type: %s" % vcs.vcs_type)
-            self.stdout.write("URL: %s" % vcs.url)
-            self.stdout.write("enabled: %s" % vcs.enabled)
-            self.stdout.write("latest commit: %s" % vcs.get_latest_commit())
-            self.stdout.write("fetch frequency: %s" % vcs.fetch_frequency)
-            self.stdout.write("push frequency: %s" % vcs.push_frequency)
-
-    def handle_pull_translations(self, project):
-        try:
-            vcs = project.vcs.get()
-        except ProjectVCS.DoesNotExist:
-            vcs = None
-        vcs.pull_translation_files()
-
-    def handle_commit_changes(self, project):
-        pass
-
-    def handle_status(self, project):
-        try:
-            vcs = project.vcs.get()
-        except ProjectVCS.DoesNotExist:
-            vcs = None
-        status = vcs.status()
-        synced = (
-            not status['CONFLICT']
-            and not status['POOTLE_AHEAD']
-            and not status['VCS_AHEAD'])
-        if synced:
-            self.stdout.write("Everything up-to-date")
-            return
-        if status["CONFLICT"]:
-            self.stdout.write("Both changed:")
-            for repo_file in status["CONFLICT"]:
-                self.stdout.write(repo_file)
-        if status["POOTLE_AHEAD"]:
-            self.stdout.write("Pootle changed:")
-            for repo_file in status["POOTLE_AHEAD"]:
-                self.stdout.write(repo_file)
-        if status["VCS_AHEAD"]:
-            self.stdout.write("VCS changed:")
-            for repo_file in status["VCS_AHEAD"]:
-                self.stdout.write(repo_file)
-
-    def handle_read_config(self, project):
-        try:
-            vcs = project.vcs.get()
-        except ProjectVCS.DoesNotExist:
-            vcs = None
-        return vcs.read_config()
+            subcommand = self.subcommands[command]()
+        except AttributeError:
+            raise CommandError("Unrecognised command: %s" % command)
+        defaults = {}
+        for opt in subcommand.option_list:
+            if opt.default is NO_DEFAULT:
+                defaults[opt.dest] = None
+            else:
+                defaults[opt.dest] = opt.default
+        defaults.update(options)
+        return subcommand.execute(project, *args, **defaults)
 
     def handle(self, *args, **kwargs):
-
         if args:
             project_code = args[0]
             args = args[1:]
@@ -102,14 +61,13 @@ class Command(BaseCommand):
                 project = None
 
             if project:
-                if args:
-                    command = args[0]
-                    handler = getattr(self, "handle_%s" % command, None)
-                    if handler:
-                        handler(project)
-                else:
-                    self.handle_project_info(project)
-
+                return self.handle_subcommand(
+                    project, *(args or ['info']), **kwargs)
         else:
             for project in Project.objects.all():
-                self.handle_project(project)
+                try:
+                    self.stdout.write(
+                        "%s\t%s"
+                        % (project.code, project.vcs.get().url))
+                except ProjectVCS.DoesNotExist:
+                    pass
