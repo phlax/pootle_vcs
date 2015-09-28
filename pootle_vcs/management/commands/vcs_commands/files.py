@@ -22,4 +22,4 @@ class FilesCommand(SubCommand):
                 % (store_vcs.path,
                    store_vcs.store.pootle_path,
                    store_vcs.last_sync_revision,
-                   store_vcs.last_sync_commit[:8]))
+                   (store_vcs.last_sync_commit or '')[:8]))
