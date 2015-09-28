@@ -116,7 +116,7 @@ class Plugin(object):
             POOTLE_AHEAD=[])
 
         for store_vcs in self.translation_files:
-            repo_file = store_vcs.repository_file            
+            repo_file = store_vcs.repository_file
             repo_removed = not repo_file.exists
             repo_added = (
                 store_vcs.last_sync_commit is None)
@@ -157,4 +157,3 @@ class Plugins(object):
 
     def __contains__(self, k):
         return k in self.__plugins__
-

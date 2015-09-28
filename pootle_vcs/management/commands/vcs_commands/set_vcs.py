@@ -22,11 +22,11 @@ class SetVCSCommand(SubCommand):
             raise CommandError("You must a VCS type and VCS url")
 
         try:
-            vcs_type = plugins[args[0]]
+            plugins[args[0]]
         except KeyError:
             raise CommandError("Unrecognised VCS type: %s" % args[0])
 
-        try:            
+        try:
             vcs = project.vcs.get()
         except ProjectVCS.DoesNotExist:
             vcs = project.vcs.create()
